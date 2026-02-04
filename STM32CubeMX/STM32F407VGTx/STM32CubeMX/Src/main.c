@@ -21,11 +21,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f4xx_hal.h"
 #include "dio.h"
 #include "exti.h"
 #include "button.h"
 #include "motor.h"
-#include "stm32f4xx_hal.h"
+#include "as5600.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -65,7 +67,24 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void Motor_Control_APPLY()
+{
+if (HAL_GetTick() - lastMotorTick >= 10)
+  {
+    lastMotorTick = HAL_GetTick();
+    Motor_Update();
+  }
+	uint8_t up   = Button_IsHeld(BTN_UP);
+	uint8_t down = Button_IsHeld(BTN_DOWN);
+	if (up && down) {Motor_Control(MOTOR_STOP, 0);}
+	else if (up) { Motor_Control(MOTOR_UP, 100);}
+	else if (down){ Motor_Control(MOTOR_DOWN, 100);}
+	else{ Motor_Control(MOTOR_STOP, 0);}
+  }
+static void AS5600_ReadAngleStatus (void)
+{
 
+}
 /* USER CODE END 0 */
 
 /**
@@ -113,31 +132,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (HAL_GetTick() - lastMotorTick >= 10)
-  {
-    lastMotorTick = HAL_GetTick();
-    Motor_Update();
-  }
-	uint8_t up   = Button_IsHeld(BTN_UP);
-	uint8_t down = Button_IsHeld(BTN_DOWN);
-  
-	if (up && down)
-{
-  
-    Motor_Control(MOTOR_STOP, 0);
-}
-	else if (up)
-{
-    Motor_Control(MOTOR_UP, 100);
-}
-	else if (down)
-{
-    Motor_Control(MOTOR_DOWN, 100);
-}
-	else
-{
-    Motor_Control(MOTOR_STOP, 0);
-}
+	Motor_Control_APPLY();
+
  }
   /* USER CODE END 3 */
 }

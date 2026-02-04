@@ -1,4 +1,5 @@
 #include "as5600.h"
+#include "stm32f4xx_hal_def.h"
 #include "stm32f4xx_hal_i2c.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -34,7 +35,7 @@ AS5600_Status_t AS5600_ReadAngle(I2C_HandleTypeDef *hi2c, uint16_t *pAngle)
 AS5600_Status_t AS5600_ReadStatus(I2C_HandleTypeDef *hi2c, uint8_t *pStatus)
 {
     uint8_t status_reg = 0;
-    if (HAL_I2C_Mem_Read(hi2c, AS5600_ADDR, AS5600_STATUS, AS5600_ADDR_SIZE_8bit, &status_reg,1,100) ! HAL_OK)
+    if (HAL_I2C_Mem_Read(hi2c, AS5600_ADDR, AS5600_STATUS, AS5600_ADDR_SIZE_8bit, &status_reg,1,100) != HAL_OK)
     {
         return AS5600_ERROR;
     }
@@ -49,5 +50,25 @@ AS5600_Status_t AS5600_ReadStatus(I2C_HandleTypeDef *hi2c, uint8_t *pStatus)
         return AS5600_ERROR;
     }
 
+    return AS5600_OK;
+}
+
+AS5600_Status_t AS5600_Init(I2C_HandleTypeDef *hi2c)
+{
+    uint8_t magnet_status =0;
+    if (HAL_I2C_IsDeviceReady(hi2c,AS5600_ADDR, 5,100 ) != HAL_OK)
+    {
+        return AS5600_ERROR;
+    }
+    
+    if (AS5600_ReadStatus(hi2c, &magnet_status) != AS5600_OK)
+    {
+        return AS5600_ERROR;
+    }
+
+    if(!(magnet_status &AS5600_STATUS_MD))
+    {
+        return AS5600_ERROR;
+    }
     return AS5600_OK;
 }

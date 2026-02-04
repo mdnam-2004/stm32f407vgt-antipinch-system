@@ -1,0 +1,47 @@
+# A project translates into one executable or library.
+project:
+  # List components to use for your application.
+  # A software component is a re-usable unit that may be configurable.
+  add-path:
+    - ./BSW/MCAL
+    - ./BSW/ECUAB
+    - ./BSW/SERVICES
+  components:
+    - component: ARM::CMSIS:CORE
+    - component: Device:CubeMX
+
+  # List executable file formats to be generated.
+  output:
+    type:
+      - elf
+      - hex
+      - map
+  groups:
+    - group: BSW
+      groups:
+        - group: MCAL
+          files:
+            - file: BSW/MCAL/as5600.h
+            - file: BSW/MCAL/motor.c
+            - file: BSW/MCAL/exti.c
+            - file: BSW/MCAL/as5600.c
+            - file: BSW/MCAL/motor.h
+            - file: BSW/MCAL/button.h
+            - file: BSW/MCAL/button.c
+            - file: BSW/MCAL/exti.h
+            - file: BSW/MCAL/dio.c
+            - file: BSW/MCAL/dio.h
+        - group: ECUAB
+          files:
+            - file: BSW/ECUAB/current_if.c
+            - file: BSW/ECUAB/current_if.h
+            - file: BSW/ECUAB/hall_if.c
+            - file: BSW/ECUAB/hall_if.h
+            - file: BSW/ECUAB/motor_if.c
+            - file: BSW/ECUAB/motor_if.h
+        - group: SERVICES
+          files:
+            - file: BSW/SERVICES/diag.c
+            - file: BSW/SERVICES/diag.h
+            - file: BSW/SERVICES/os_if.c
+            - file: BSW/SERVICES/os_if.h

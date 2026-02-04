@@ -1,0 +1,5 @@
+load STM32F407VGTx
+project name STM32CubeMX
+project toolchain "MDK-ARM V5"
+project path "D:\00_Self-learning\00-stm32-hal\stm32f407vgt-antipinch-system\STM32CubeMX\STM32F407VGTx"
+SetCopyLibrary "copy only"

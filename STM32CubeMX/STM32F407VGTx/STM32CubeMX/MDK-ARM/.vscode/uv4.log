@@ -1,0 +1,5 @@
+Load "STM32CubeMX\\STM32CubeMX.axf" 
+_____^
+*** error 56: cannot open file
+Error: Flash Download failed  -  Could not load file 'STM32CubeMX\STM32CubeMX.axf'
+Flash Load finished at 02:21:32

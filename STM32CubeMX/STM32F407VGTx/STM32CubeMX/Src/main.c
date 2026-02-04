@@ -27,6 +27,7 @@
 #include "button.h"
 #include "motor.h"
 #include "as5600.h"
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -67,6 +68,7 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint32_t lastMotorTick = 0;
 static void Motor_Control_APPLY()
 {
 if (HAL_GetTick() - lastMotorTick >= 10)
@@ -80,10 +82,25 @@ if (HAL_GetTick() - lastMotorTick >= 10)
 	else if (up) { Motor_Control(MOTOR_UP, 100);}
 	else if (down){ Motor_Control(MOTOR_DOWN, 100);}
 	else{ Motor_Control(MOTOR_STOP, 0);}
-  }
-static void AS5600_ReadAngleStatus (void)
-{
+}
 
+static void Display_Sensor_Data (uint16_t raw_angle, uint8_t status_reg)
+{
+  float angle_degrees = (float)raw_angle * 360.0f/4096.0f;
+  char *magnet_msg;
+
+  if (!(status_reg & AS5600_STATUS_MD)){
+    magnet_msg = "KHONG TIM THAY NAM CHAM";
+  }
+  else if (status_reg & AS5600_STATUS_ML){
+    magnet_msg = "NAM CHAM  XA";
+  }
+  else if (status_reg & AS5600_STATUS_MD){
+    magnet_msg = "NAM CHAM GAN";
+  }
+  else {
+    magnet_msg = "OK - TOI UU";
+  }
 }
 /* USER CODE END 0 */
 
@@ -122,7 +139,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	Button_Init();
 	Motor_Init();
-	uint32_t lastMotorTick = 0;
+  if(AS5600_Init(&hi2c1) == AS5600_OK)
+  {
+    Dio_Write(LED_0,DIO_HIGH);
+  }
+  else {
+    Dio_Write(LED_1, DIO_LOW);
+  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -133,7 +157,16 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	Motor_Control_APPLY();
-
+  uint16_t current_angle =0;
+  uint8_t magnet_status =0;
+  AS5600_Status_t res_status = AS5600_ReadStatus(&hi2c1,&magnet_status);
+  AS5600_Status_t res_angles = AS5600_ReadAngle(&hi2c1, &current_angle);
+  if (res_status == AS5600_OK && res_angles == AS5600_OK) {
+  Display_Sensor_Data(current_angle, magnet_status);
+  }
+  else {
+    printf("Loi giao tiep");
+  }
  }
   /* USER CODE END 3 */
 }

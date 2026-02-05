@@ -45,3 +45,25 @@ project:
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/hall_if.h
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/motor_if.c
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/motor_if.h
+    - group: Middlewares
+      groups:
+        - group: SEGGER_RTT
+          groups:
+            - group: Config
+              files:
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/Config/SEGGER_RTT_Conf.h
+            - group: RTT
+              files:
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/RTT/SEGGER_RTT.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/RTT/SEGGER_RTT.h
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/RTT/SEGGER_RTT_printf.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/RTT/SEGGER_RTT_ASM_ARMv7M.S
+            - group: Syscalls
+              files:
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_GCC.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_IAR.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_KEIL.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_SES.c
+          files:
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/LICENSE.md
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/Middlewares/SEGGER_RTT/README.md

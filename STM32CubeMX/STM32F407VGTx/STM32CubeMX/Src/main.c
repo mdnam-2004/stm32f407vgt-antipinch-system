@@ -27,8 +27,9 @@
 #include "button.h"
 #include "motor.h"
 #include "as5600.h"
+#include <stdint.h>
 #include <stdio.h>
-
+#include "SEGGER_RTT.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -84,24 +85,6 @@ if (HAL_GetTick() - lastMotorTick >= 10)
 	else{ Motor_Control(MOTOR_STOP, 0);}
 }
 
-static void Display_Sensor_Data (uint16_t raw_angle, uint8_t status_reg)
-{
-  float angle_degrees = (float)raw_angle * 360.0f/4096.0f;
-  char *magnet_msg;
-
-  if (!(status_reg & AS5600_STATUS_MD)){
-    magnet_msg = "KHONG TIM THAY NAM CHAM";
-  }
-  else if (status_reg & AS5600_STATUS_ML){
-    magnet_msg = "NAM CHAM  XA";
-  }
-  else if (status_reg & AS5600_STATUS_MD){
-    magnet_msg = "NAM CHAM GAN";
-  }
-  else {
-    magnet_msg = "OK - TOI UU";
-  }
-}
 /* USER CODE END 0 */
 
 /**
@@ -137,16 +120,10 @@ int main(void)
   MX_TIM3_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+  SEGGER_RTT_Init();
 	Button_Init();
 	Motor_Init();
-  if(AS5600_Init(&hi2c1) == AS5600_OK)
-  {
-    Dio_Write(LED_0,DIO_HIGH);
-  }
-  else {
-    Dio_Write(LED_1, DIO_LOW);
-  }
-
+  SEGGER_RTT_WriteString(0, "AS5600 System Started...\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -156,17 +133,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
 	Motor_Control_APPLY();
-  uint16_t current_angle =0;
-  uint8_t magnet_status =0;
-  AS5600_Status_t res_status = AS5600_ReadStatus(&hi2c1,&magnet_status);
-  AS5600_Status_t res_angles = AS5600_ReadAngle(&hi2c1, &current_angle);
-  if (res_status == AS5600_OK && res_angles == AS5600_OK) {
-  Display_Sensor_Data(current_angle, magnet_status);
-  }
-  else {
-    printf("Loi giao tiep");
-  }
+  AS5600_ReadStatus(&hi2c1, NULL);
+
  }
   /* USER CODE END 3 */
 }

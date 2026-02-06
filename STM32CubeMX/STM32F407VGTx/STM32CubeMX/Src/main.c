@@ -23,12 +23,9 @@
 /* USER CODE BEGIN Includes */
 #include "stm32f4xx_hal.h"
 #include "dio.h"
-#include "exti.h"
 #include "button.h"
 #include "motor.h"
-#include "as5600.h"
 #include <stdint.h>
-#include <stdio.h>
 #include "SEGGER_RTT.h"
 /* USER CODE END Includes */
 
@@ -135,8 +132,6 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	Motor_Control_APPLY();
-  AS5600_ReadStatus(&hi2c1, NULL);
-
  }
   /* USER CODE END 3 */
 }

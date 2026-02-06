@@ -21,8 +21,6 @@ project:
       groups:
         - group: MCAL
           files:
-            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/as5600.h
-            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/as5600.c
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/dio.h
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/motor.c
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/exti.c

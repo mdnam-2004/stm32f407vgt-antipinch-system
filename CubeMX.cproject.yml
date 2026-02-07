@@ -29,6 +29,8 @@ project:
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/dio.c
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/encoder.c
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/encoder.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/ina240.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/ina240.h
         - group: SERVICES
           files:
             - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/SERVICES/diag.c

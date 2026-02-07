@@ -31,6 +31,7 @@
 #include "encoder.h"
 #include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_tim.h"
+#include <inttypes.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,7 +52,7 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 
 /* USER CODE BEGIN PV */
 
@@ -62,7 +63,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -79,20 +80,34 @@ if (HAL_GetTick() - lastMotorTick >= 10)
   }
 	uint8_t up   = Button_IsHeld(BTN_UP);
 	uint8_t down = Button_IsHeld(BTN_DOWN);
-	if (up && down) {Motor_Control(MOTOR_STOP, 0);}
-	else if (up) { Motor_Control(MOTOR_UP, 100);}
-	else if (down){ Motor_Control(MOTOR_DOWN, 100);}
-	else{ Motor_Control(MOTOR_STOP, 0);}
+	if (up && down) 
+  {
+    Motor_Control(MOTOR_STOP, 0);
+    Dio_Write(LED_1, DIO_LOW);
+    Dio_Write(LED_0, DIO_LOW);
+  }
+	else if (up) 
+  { 
+    Motor_Control(MOTOR_UP, 50);
+    Dio_Write(LED_1, DIO_HIGH);
+  }
+	else if (down)
+  { 
+    Motor_Control(MOTOR_DOWN, 50);
+    Dio_Write(LED_0, DIO_HIGH);
+  }
+	else{ 
+    Motor_Control(MOTOR_STOP, 0);
+    Dio_Write(LED_1, DIO_LOW);
+    Dio_Write(LED_0, DIO_LOW);
+    }
 }
 
 encoder_handle_t hencoder_window;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim-> Instance == TIM4)
+  if (htim ->Instance ==TIM3) 
   {
-    encoder_process_periodic(&hencoder_window);
-  }
-  else if (htim ->Instance ==TIM3) {
     Button_Scan();
   }
 }
@@ -129,13 +144,12 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_TIM4_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim3); 
-  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
   SEGGER_RTT_Init();
 	Motor_Init();
-  SEGGER_RTT_WriteString(0, "System Started...\r\n");
   static uint32_t last_call_10ms = 0;
   /* USER CODE END 2 */
 
@@ -150,15 +164,14 @@ int main(void)
   if (HAL_GetTick() - last_call_10ms >= 10)
   {
     last_call_10ms = HAL_GetTick(); // Cập nhật thời gian
-
-
-    int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8); 
-    int pinB = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8);
-
+    encoder_update(&hencoder_window, &htim5);
     ENC_angle(&hencoder_window);         
     positon_mm(&hencoder_window);        
     speed_mm_s(&hencoder_window);        
     
+    int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+    int pinB = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);
+
     float ang = hencoder_window.angle_deg; // goc quay
     int32_t ang_int = (int32_t)ang;
     int32_t ang_dec = (int32_t)((ang - ang_int) * 100);
@@ -178,16 +191,29 @@ int main(void)
     int32_t spd_int = (int32_t)spd;
     int32_t spd_dec = (int32_t)((spd - spd_int) * 100);
     if (spd_dec < 0) spd_dec = -spd_dec;
-    SEGGER_RTT_printf(0, "--------------------\n");
-    SEGGER_RTT_printf(0, "HW | A: %d | B: %d | Pulse: %d | Dir: %d\n", 
-                      pinA, pinB, 
-                      hencoder_window.pulse_count, 
-                      hencoder_window.direction);
 
-    SEGGER_RTT_printf(0, "Angle: %d.%02d deg\n", ang_int, ang_dec);
-    SEGGER_RTT_printf(0, "Rev  : %d.%02d rev\n", rev_int, rev_dec);
-    SEGGER_RTT_printf(0, "Pos  : %d.%02d mm\n",  pos_int, pos_dec);
-    SEGGER_RTT_printf(0, "Speed: %d.%02d mm/s\n", spd_int, spd_dec);
+    float acc = hencoder_window.accel_filtered;
+    int32_t acc_int = (int32_t)acc;
+    int32_t acc_dec = (int32_t)((acc - acc_int) * 100);
+    if (acc_dec < 0) acc_dec = -acc_dec;
+
+
+    SEGGER_RTT_printf(0, "--------------------\n");
+
+char buf[128];
+int n = snprintf(buf, sizeof(buf),
+  "HW | A:%d | B:%d | Pulse:%" PRId64 " | Dir:%d |\n",
+  (int)pinA, (int)pinB,
+  (int64_t)hencoder_window.pulse_count,
+  (int)hencoder_window.direction
+);
+SEGGER_RTT_Write(0, buf, (unsigned)n);
+SEGGER_RTT_printf(0, "Ang:%d.%02d | Rev:%d.%02d | Pos:%d.%02d | Spd:%d.%02d | Acc:%d.%02d | \n", 
+                  ang_int, ang_dec, 
+                  rev_int, rev_dec, 
+                  pos_int, pos_dec, 
+                  spd_int, spd_dec, 
+                  acc_int, acc_dec);
 }
 }
   /* USER CODE END 3 */
@@ -348,47 +374,51 @@ static void MX_TIM3_Init(void)
 }
 
 /**
-  * @brief TIM4 Initialization Function
+  * @brief TIM5 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM4_Init(void)
+static void MX_TIM5_Init(void)
 {
 
-  /* USER CODE BEGIN TIM4_Init 0 */
+  /* USER CODE BEGIN TIM5_Init 0 */
 
-  /* USER CODE END TIM4_Init 0 */
+  /* USER CODE END TIM5_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_Encoder_InitTypeDef sConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM4_Init 1 */
+  /* USER CODE BEGIN TIM5_Init 1 */
 
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 83;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 49;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM4_Init 2 */
+  /* USER CODE BEGIN TIM5_Init 2 */
 
-  /* USER CODE END TIM4_Init 2 */
+  /* USER CODE END TIM5_Init 2 */
 
 }
 

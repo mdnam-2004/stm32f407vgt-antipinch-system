@@ -1,68 +1,68 @@
 #include "encoder.h"
-#include "motor.h"
-#include "stm32f407xx.h"
 #include "stm32f4xx_hal_gpio.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
 
-static const int8_t QUAD_TABLE[16] ={
-    0, -1, 1, 2, // 00=0 01=1 10=-1 11=error
-    1, 0, 2, -1,
-    -1, 2, 0, 1,
-    2, 1, -1, 0
-};
-void encoder_update(encoder_handle_t *penc)
+void encoder_update(encoder_handle_t *penc, TIM_HandleTypeDef *htim)
 {
-  if (penc == NULL) 
+  if (penc == NULL || htim == NULL)
     {
         return;
     }
-    uint8_t pinA = (HAL_GPIO_ReadPin(ENC_PHASE_A) == GPIO_PIN_SET) ? 1U : 0U;
-    uint8_t pinB = (HAL_GPIO_ReadPin(ENC_PHASE_B) == GPIO_PIN_SET)? 1U : 0U;
-    uint8_t new_state = (pinA <<1) | pinB;
-    uint8_t old_state = penc->old_state;
 
-   if ( old_state != new_state) 
-   {
-      uint8_t index = (uint8_t)(old_state << 2 | new_state);
-      if( index <= ENC_MAX_INDEX )
-      {
-        int8_t motion = QUAD_TABLE[index];
-        if(motion == INVALID_MOTION)
-        {
-            penc->error_count++;
-        }
-        else if (motion != 0) 
-        {
-          penc->pulse_count += (int32_t)motion;
-          penc->direction =motion;
-          uint8_t diff = new_state ^ penc->old_state;
-          if (diff & 0x02u /* 0x10*/) penc->toggle_cnt_A ++;
-          if (diff & 0x01u /* 0x01*/) penc->toggle_cnt_B ++;
-          if (penc->error_count > 0u) penc->error_count --;
-        }
-        else{}
-      }
-   }
+    uint32_t current_cnt = __HAL_TIM_GET_COUNTER(htim);
+    int32_t delta = (int32_t)((int16_t)current_cnt - (int16_t)penc->last_hw_cnt);
+    penc->debug_delta = delta;
 
-    if(penc->error_count >= ERR_THRESHOLD)
+if (delta != 0) 
     {
-      penc-> is_fault = 1u;
-      penc->fault_code = ENC_ERR_INVALID;
+        penc->stop_timeout_cnt = ENC_STOP_TIMEOUT;
+
+        int8_t new_dir = 0;
+        if (delta > 0) new_dir = 1;
+        else new_dir = -1;
+        #if ENC_INVERT_DIR
+            new_dir = -new_dir; 
+        #endif
+        penc->direction = new_dir;
+        #if ENC_INVERT_DIR
+            penc->pulse_count -= delta; 
+        #else
+            penc->pulse_count += delta;
+        #endif
+        uint32_t activity = (uint32_t)((delta >= 0) ? delta : -delta);
+        penc->toggle_cnt_A += activity;
+        penc->toggle_cnt_B += activity;
+        if (penc->error_count > 0u) 
+        {
+            penc->error_count--;
+        }
+    }
+else 
+    {
+        if (penc->stop_timeout_cnt > 0)
+        {
+            penc->stop_timeout_cnt--;
+        }
+        else
+        {
+            penc->direction = 0;
+        }
     }
 
-    uint32_t total_toggles =(penc->toggle_cnt_A + penc->toggle_cnt_B);
+    uint32_t total_toggles = (penc->toggle_cnt_A + penc->toggle_cnt_B);
     if(total_toggles >= SIGNAL_CHECK_THRESHOLD)
     {
         if(penc->toggle_cnt_A < MIN_TOGGLE_REQUIRED)
         {
-            penc->is_fault=1u;
-            penc->fault_code= ENC_ERR_A;
+            penc->is_fault = 1u;
+            penc->fault_code = ENC_ERR_A;
         }
         else if(penc->toggle_cnt_B < MIN_TOGGLE_REQUIRED)
         {
-            penc->is_fault =1u;
-            penc->fault_code=ENC_ERR_B;
+            penc->is_fault = 1u;
+            penc->fault_code = ENC_ERR_B;
         }
         else
         {
@@ -70,17 +70,14 @@ void encoder_update(encoder_handle_t *penc)
             penc->toggle_cnt_B = 0u;
             if(penc->fault_code != ENC_ERR_INVALID)
             {
-                penc->is_fault=0;
+                penc->is_fault = 0;
                 penc->fault_code = ENC_OK;
             }
         } 
     }
-    penc->old_state = new_state;
+    penc->last_hw_cnt = (uint32_t)current_cnt;
 }
-void encoder_process_periodic(encoder_handle_t *penc)
-{
-    encoder_update(penc); 
-}
+
 void ENC_angle(encoder_handle_t *penc)
 {
     if (penc == NULL)
@@ -89,30 +86,15 @@ void ENC_angle(encoder_handle_t *penc)
     }
     penc->total_revolutions = (float)penc->pulse_count / (float)PULSES_PER_REV_OUTPUT;
     float raw_angle = penc->total_revolutions *360.0f;
-    while (raw_angle >= 360.0f) 
-    {
-        raw_angle -= 360.0f;
-    }
-    while (raw_angle <0.0f) 
-    {
-        raw_angle += 360.0f;
-    }
-    penc->angle_deg =raw_angle;
+    penc->angle_deg = fmodf(penc->total_revolutions * 360.0f, 360.0f);
+    if (penc->angle_deg < 0) penc->angle_deg += 360.0f;
 }
 
 void positon_mm (encoder_handle_t *penc)
 {
     if (penc == NULL) return;
     float raw_mm = (float)penc->pulse_count/ (float)ENC_PULSES_PER_MM;
-    // if(raw_mm <0.0f)
-    // {
-    //     raw_mm =0.0f;
-    // }
-    // else if(raw_mm > WINDOW_HEIGHT_MAX_MM)
-    // {
-    //     raw_mm = WINDOW_HEIGHT_MAX_MM;
-    // }
-     penc->position_mm =raw_mm; 
+    penc->position_mm =raw_mm; 
 }
 
 void speed_mm_s (encoder_handle_t *penc)
@@ -120,17 +102,26 @@ void speed_mm_s (encoder_handle_t *penc)
     if (penc == NULL) return;
     uint32_t current_tick = HAL_GetTick();
     uint32_t dt_ms = current_tick - penc->last_tick;
-    if (dt_ms == 0) 
-    {
-        return;
-    }
+
+    if (dt_ms == 0) return;
+
+    float dt_sec = (float)dt_ms / 1000.0f;
+
     int32_t current_pulse = penc->pulse_count;
     int32_t delta_pulse = current_pulse - penc->last_pulse_count;
-    float dt_sec = (float)dt_ms / 1000.0f;
+    
     float distance_mm = (float)delta_pulse / ENC_PULSES_PER_MM;
-    float speed = distance_mm / dt_sec;
-    penc->speed_mm_s = speed;
+    float current_speed = distance_mm / dt_sec;
+    penc->speed_mm_s = current_speed;
+
+    float delta_v = current_speed - penc->last_speed_mm_s;
+    float raw_accel = delta_v / dt_sec;
+
+   // penc->accel_mm_s2 = raw_accel;
+    penc->accel_mm_s2 = delta_v / dt_sec;
+    penc->accel_filtered = (FILTER_ALPHA * raw_accel) + ((1.0f - FILTER_ALPHA) * penc->accel_filtered);
+
     penc->last_pulse_count = current_pulse;
     penc->last_tick = current_tick;
-
+    penc->last_speed_mm_s = current_speed;
 }

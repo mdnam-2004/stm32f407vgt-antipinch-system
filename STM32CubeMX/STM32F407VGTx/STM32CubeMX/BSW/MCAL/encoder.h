@@ -49,4 +49,5 @@ void encoder_update(encoder_handle_t *penc);
 void encoder_process_periodic(encoder_handle_t *pEnc);
 void ENC_angle(encoder_handle_t *penc);
 void positon_mm (encoder_handle_t *penc);
+void speed_mm_s (encoder_handle_t *penc);
 #endif

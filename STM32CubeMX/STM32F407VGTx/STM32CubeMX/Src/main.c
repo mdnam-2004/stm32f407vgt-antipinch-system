@@ -136,6 +136,7 @@ int main(void)
   SEGGER_RTT_Init();
 	Motor_Init();
   SEGGER_RTT_WriteString(0, "System Started...\r\n");
+  static uint32_t last_call_10ms = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -146,35 +147,49 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	Motor_Control_APPLY();
-  int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8); 
-  int pinB = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8);
-  SEGGER_RTT_printf(0, "A: %d | B: %d |Pulse: %d | Dir: %d|is_Fault: %d\n ", 
-                              (int) pinA,(int) pinB,
-                              (int)hencoder_window.pulse_count,
-                              (int)hencoder_window.direction, 
-                              (int)hencoder_window.is_fault);
-  
-  float angle = hencoder_window.angle_deg;
-  float rev = hencoder_window.total_revolutions;
-  int32_t val_int = (int32_t)angle;                    
-  int32_t val_dec = (int32_t)((angle - val_int) * 100);
-  if (val_dec < 0) val_dec = -val_dec;
-  
-  ENC_angle(&hencoder_window);
-  int32_t rev_int = (int32_t)rev;
-  int32_t rev_dec = (int32_t)((rev - rev_int) * 100);
-  if (rev_dec < 0) rev_dec = -rev_dec;
+  if (HAL_GetTick() - last_call_10ms >= 10)
+  {
+    last_call_10ms = HAL_GetTick(); // Cập nhật thời gian
 
-  positon_mm(&hencoder_window);      // Tính góc/vòng
-  float pos = hencoder_window.position_mm;
-  int32_t pos_int = (int32_t)pos;
-  int32_t pos_dec = (int32_t)((pos - pos_int) * 100);
-  if (pos_dec < 0) pos_dec = -pos_dec; 
 
-  SEGGER_RTT_printf(0, "Angle: %d.%02d\n", val_int, val_dec);     
-  SEGGER_RTT_printf(0, "Rev: %d.%02d\n", rev_int, rev_dec);
-  SEGGER_RTT_printf(0, "Pos: %d.%02d mm\n", pos_int, pos_dec);            
- }
+    int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8); 
+    int pinB = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8);
+
+    ENC_angle(&hencoder_window);         
+    positon_mm(&hencoder_window);        
+    speed_mm_s(&hencoder_window);        
+    
+    float ang = hencoder_window.angle_deg; // goc quay
+    int32_t ang_int = (int32_t)ang;
+    int32_t ang_dec = (int32_t)((ang - ang_int) * 100);
+    if (ang_dec < 0) ang_dec = -ang_dec;
+
+    float rev = hencoder_window.total_revolutions; // so vong quay
+    int32_t rev_int = (int32_t)rev;
+    int32_t rev_dec = (int32_t)((rev - rev_int) * 100);
+    if (rev_dec < 0) rev_dec = -rev_dec;
+
+    float pos = hencoder_window.position_mm; // pos - vi tri
+    int32_t pos_int = (int32_t)pos;
+    int32_t pos_dec = (int32_t)((pos - pos_int) * 100);
+    if (pos_dec < 0) pos_dec = -pos_dec;
+
+    float spd = hencoder_window.speed_mm_s; // speed
+    int32_t spd_int = (int32_t)spd;
+    int32_t spd_dec = (int32_t)((spd - spd_int) * 100);
+    if (spd_dec < 0) spd_dec = -spd_dec;
+    SEGGER_RTT_printf(0, "--------------------\n");
+    SEGGER_RTT_printf(0, "HW | A: %d | B: %d | Pulse: %d | Dir: %d\n", 
+                      pinA, pinB, 
+                      hencoder_window.pulse_count, 
+                      hencoder_window.direction);
+
+    SEGGER_RTT_printf(0, "Angle: %d.%02d deg\n", ang_int, ang_dec);
+    SEGGER_RTT_printf(0, "Rev  : %d.%02d rev\n", rev_int, rev_dec);
+    SEGGER_RTT_printf(0, "Pos  : %d.%02d mm\n",  pos_int, pos_dec);
+    SEGGER_RTT_printf(0, "Speed: %d.%02d mm/s\n", spd_int, spd_dec);
+}
+}
   /* USER CODE END 3 */
 }
 

@@ -120,5 +120,17 @@ void speed_mm_s (encoder_handle_t *penc)
     if (penc == NULL) return;
     uint32_t current_tick = HAL_GetTick();
     uint32_t dt_ms = current_tick - penc->last_tick;
+    if (dt_ms == 0) 
+    {
+        return;
+    }
+    int32_t current_pulse = penc->pulse_count;
+    int32_t delta_pulse = current_pulse - penc->last_pulse_count;
+    float dt_sec = (float)dt_ms / 1000.0f;
+    float distance_mm = (float)delta_pulse / ENC_PULSES_PER_MM;
+    float speed = distance_mm / dt_sec;
+    penc->speed_mm_s = speed;
+    penc->last_pulse_count = current_pulse;
+    penc->last_tick = current_tick;
 
 }

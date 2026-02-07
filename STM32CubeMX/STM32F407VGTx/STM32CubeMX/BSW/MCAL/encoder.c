@@ -5,32 +5,18 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define SIGNAL_CHECK_THRESHOLD 520
-#define MIN_TOGGLE_REQUIRED 10
-#define INVALID_MOTION     2
-#define ERR_THRESHOLD 10
-#define ENC_PHASE_A GPIOA, GPIO_PIN_8
-#define ENC_PHASE_B GPIOC, GPIO_PIN_8
-#define ENC_MAX_INDEX        15U
-#define ENC_ERR_LIMIT        10U
-#define ENC_PHASE_A_MASK     0x02U
-#define ENC_PHASE_B_MASK     0x01U
-
 static const int8_t QUAD_TABLE[16] ={
     0, -1, 1, 2, // 00=0 01=1 10=-1 11=error
     1, 0, 2, -1,
     -1, 2, 0, 1,
     2, 1, -1, 0
 };
-
 void encoder_update(encoder_handle_t *penc)
 {
-    
-    if (penc == NULL) 
+  if (penc == NULL) 
     {
         return;
     }
-
     uint8_t pinA = (HAL_GPIO_ReadPin(ENC_PHASE_A) == GPIO_PIN_SET) ? 1U : 0U;
     uint8_t pinB = (HAL_GPIO_ReadPin(ENC_PHASE_B) == GPIO_PIN_SET)? 1U : 0U;
     uint8_t new_state = (pinA <<1) | pinB;
@@ -91,8 +77,48 @@ void encoder_update(encoder_handle_t *penc)
     }
     penc->old_state = new_state;
 }
-
 void encoder_process_periodic(encoder_handle_t *penc)
 {
     encoder_update(penc); 
+}
+void ENC_angle(encoder_handle_t *penc)
+{
+    if (penc == NULL)
+    {
+        return;
+    }
+    penc->total_revolutions = (float)penc->pulse_count / (float)PULSES_PER_REV_OUTPUT;
+    float raw_angle = penc->total_revolutions *360.0f;
+    while (raw_angle >= 360.0f) 
+    {
+        raw_angle -= 360.0f;
+    }
+    while (raw_angle <0.0f) 
+    {
+        raw_angle += 360.0f;
+    }
+    penc->angle_deg =raw_angle;
+}
+
+void positon_mm (encoder_handle_t *penc)
+{
+    if (penc == NULL) return;
+    float raw_mm = (float)penc->pulse_count/ (float)ENC_PULSES_PER_MM;
+    // if(raw_mm <0.0f)
+    // {
+    //     raw_mm =0.0f;
+    // }
+    // else if(raw_mm > WINDOW_HEIGHT_MAX_MM)
+    // {
+    //     raw_mm = WINDOW_HEIGHT_MAX_MM;
+    // }
+     penc->position_mm =raw_mm; 
+}
+
+void speed_mm_s (encoder_handle_t *penc)
+{
+    if (penc == NULL) return;
+    uint32_t current_tick = HAL_GetTick();
+    uint32_t dt_ms = current_tick - penc->last_tick;
+
 }

@@ -148,14 +148,32 @@ int main(void)
 	Motor_Control_APPLY();
   int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8); 
   int pinB = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8);
-  SEGGER_RTT_printf(0, "A: %d | B: %d | Cnt: %d | Dir: %d | Err_cnt: %u |Code_fault: %d |is_Fault: %d\n", 
+  SEGGER_RTT_printf(0, "A: %d | B: %d |Pulse: %d | Dir: %d|is_Fault: %d\n ", 
                               (int) pinA,(int) pinB,
-                              (int)hencoder_window.pulse_count, 
+                              (int)hencoder_window.pulse_count,
                               (int)hencoder_window.direction, 
-                              (unsigned int)hencoder_window.error_count,
-                              (int) hencoder_window.fault_code,
                               (int)hencoder_window.is_fault);
-  //SEGGER_RTT_printf(0, "Fault: %c\n",(char)hencoder_window.fault_code );                          
+  
+  float angle = hencoder_window.angle_deg;
+  float rev = hencoder_window.total_revolutions;
+  int32_t val_int = (int32_t)angle;                    
+  int32_t val_dec = (int32_t)((angle - val_int) * 100);
+  if (val_dec < 0) val_dec = -val_dec;
+  
+  ENC_angle(&hencoder_window);
+  int32_t rev_int = (int32_t)rev;
+  int32_t rev_dec = (int32_t)((rev - rev_int) * 100);
+  if (rev_dec < 0) rev_dec = -rev_dec;
+
+  positon_mm(&hencoder_window);      // Tính góc/vòng
+  float pos = hencoder_window.position_mm;
+  int32_t pos_int = (int32_t)pos;
+  int32_t pos_dec = (int32_t)((pos - pos_int) * 100);
+  if (pos_dec < 0) pos_dec = -pos_dec; 
+
+  SEGGER_RTT_printf(0, "Angle: %d.%02d\n", val_int, val_dec);     
+  SEGGER_RTT_printf(0, "Rev: %d.%02d\n", rev_int, rev_dec);
+  SEGGER_RTT_printf(0, "Pos: %d.%02d mm\n", pos_int, pos_dec);            
  }
   /* USER CODE END 3 */
 }

@@ -10,7 +10,6 @@ typedef enum{
 	BTN_DOWN,
 	BTN_COUNT
 }BTN_ID_t;
-
 typedef struct{
 	GPIO_TypeDef *port;
 	uint16_t pin;
@@ -19,10 +18,8 @@ typedef struct{
 	uint8_t Flag;				//Co bao hieu 
 }BTN_Config_t;
 
-void Button_Init();
-void TIM3_IRQHandler(void);
 void Button_Scan();
-
 uint8_t Button_GetFlag (BTN_ID_t ID_BTN); 
 uint8_t Button_IsHeld(BTN_ID_t ID_BTN);
+
 #endif

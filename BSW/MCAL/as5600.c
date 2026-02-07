@@ -1,2 +1,0 @@
-#include "as5600.h"
-

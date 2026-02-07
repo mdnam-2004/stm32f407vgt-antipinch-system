@@ -21,11 +21,17 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f407xx.h"
+#include "stm32f4xx_hal.h"
 #include "dio.h"
-#include "exti.h"
 #include "button.h"
 #include "motor.h"
-#include "stm32f4xx_hal.h"
+#include <stdint.h>
+#include "SEGGER_RTT.h"
+#include "encoder.h"
+#include "stm32f4xx_hal_gpio.h"
+#include "stm32f4xx_hal_tim.h"
+#include <inttypes.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,10 +50,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim5;
 
 /* USER CODE BEGIN PV */
 
@@ -58,14 +63,54 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_I2C1_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint32_t lastMotorTick = 0;
+static void Motor_Control_APPLY()
+{
+if (HAL_GetTick() - lastMotorTick >= 10)
+  {
+    lastMotorTick = HAL_GetTick();
+    Motor_Update();
+  }
+	uint8_t up   = Button_IsHeld(BTN_UP);
+	uint8_t down = Button_IsHeld(BTN_DOWN);
+	if (up && down) 
+  {
+    Motor_Control(MOTOR_STOP, 0);
+    Dio_Write(LED_1, DIO_LOW);
+    Dio_Write(LED_0, DIO_LOW);
+  }
+	else if (up) 
+  { 
+    Motor_Control(MOTOR_UP, 50);
+    Dio_Write(LED_1, DIO_HIGH);
+  }
+	else if (down)
+  { 
+    Motor_Control(MOTOR_DOWN, 50);
+    Dio_Write(LED_0, DIO_HIGH);
+  }
+	else{ 
+    Motor_Control(MOTOR_STOP, 0);
+    Dio_Write(LED_1, DIO_LOW);
+    Dio_Write(LED_0, DIO_LOW);
+    }
+}
 
+encoder_handle_t hencoder_window;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim ->Instance ==TIM3) 
+  {
+    Button_Scan();
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -99,11 +144,13 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_I2C1_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
-	Button_Init();
+  HAL_TIM_Base_Start_IT(&htim3); 
+  HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
+  SEGGER_RTT_Init();
 	Motor_Init();
-	uint32_t lastMotorTick = 0;
+  static uint32_t last_call_10ms = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -113,32 +160,62 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (HAL_GetTick() - lastMotorTick >= 10)
+	Motor_Control_APPLY();
+  if (HAL_GetTick() - last_call_10ms >= 10)
   {
-    lastMotorTick = HAL_GetTick();
-    Motor_Update();
-  }
-	uint8_t up   = Button_IsHeld(BTN_UP);
-	uint8_t down = Button_IsHeld(BTN_DOWN);
-  
-	if (up && down)
-{
-  
-    Motor_Control(MOTOR_STOP, 0);
+    last_call_10ms = HAL_GetTick(); // Cập nhật thời gian
+    encoder_update(&hencoder_window, &htim5);
+    ENC_angle(&hencoder_window);         
+    positon_mm(&hencoder_window);        
+    speed_mm_s(&hencoder_window);        
+    
+    int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+    int pinB = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);
+
+    float ang = hencoder_window.angle_deg; // goc quay
+    int32_t ang_int = (int32_t)ang;
+    int32_t ang_dec = (int32_t)((ang - ang_int) * 100);
+    if (ang_dec < 0) ang_dec = -ang_dec;
+
+    float rev = hencoder_window.total_revolutions; // so vong quay
+    int32_t rev_int = (int32_t)rev;
+    int32_t rev_dec = (int32_t)((rev - rev_int) * 100);
+    if (rev_dec < 0) rev_dec = -rev_dec;
+
+    float pos = hencoder_window.position_mm; // pos - vi tri
+    int32_t pos_int = (int32_t)pos;
+    int32_t pos_dec = (int32_t)((pos - pos_int) * 100);
+    if (pos_dec < 0) pos_dec = -pos_dec;
+
+    float spd = hencoder_window.speed_mm_s; // speed
+    int32_t spd_int = (int32_t)spd;
+    int32_t spd_dec = (int32_t)((spd - spd_int) * 100);
+    if (spd_dec < 0) spd_dec = -spd_dec;
+
+    float acc = hencoder_window.accel_filtered;
+    int32_t acc_int = (int32_t)acc;
+    int32_t acc_dec = (int32_t)((acc - acc_int) * 100);
+    if (acc_dec < 0) acc_dec = -acc_dec;
+
+
+    SEGGER_RTT_printf(0, "--------------------\n");
+
+char buf[128];
+int n = snprintf(buf, sizeof(buf),
+  "HW | A:%d | B:%d | Pulse:%" PRId64 " | Dir:%d |\n",
+  (int)pinA, (int)pinB,
+  (int64_t)hencoder_window.pulse_count,
+  (int)hencoder_window.direction
+);
+SEGGER_RTT_Write(0, buf, (unsigned)n);
+SEGGER_RTT_printf(0, "Ang:%d.%02d | Rev:%d.%02d | Pos:%d.%02d | Spd:%d.%02d | Acc:%d.%02d | \n", 
+                  ang_int, ang_dec, 
+                  rev_int, rev_dec, 
+                  pos_int, pos_dec, 
+                  spd_int, spd_dec, 
+                  acc_int, acc_dec);
 }
-	else if (up)
-{
-    Motor_Control(MOTOR_UP, 100);
 }
-	else if (down)
-{
-    Motor_Control(MOTOR_DOWN, 100);
-}
-	else
-{
-    Motor_Control(MOTOR_STOP, 0);
-}
- }
   /* USER CODE END 3 */
 }
 
@@ -186,40 +263,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -331,6 +374,55 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -352,8 +444,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13|GPIO_PIN_15, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_15;
+  /*Configure GPIO pins : Motor_down_Pin Phase_B_Pin */
+  GPIO_InitStruct.Pin = Motor_down_Pin|Phase_B_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -365,11 +457,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  /*Configure GPIO pin : Phase_A_Pin */
+  GPIO_InitStruct.Pin = Phase_A_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(Phase_A_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Motor_up_Pin */
+  GPIO_InitStruct.Pin = Motor_up_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Motor_up_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

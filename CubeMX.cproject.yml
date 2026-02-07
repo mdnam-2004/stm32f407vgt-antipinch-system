@@ -21,27 +21,44 @@ project:
       groups:
         - group: MCAL
           files:
-            - file: BSW/MCAL/as5600.h
-            - file: BSW/MCAL/motor.c
-            - file: BSW/MCAL/exti.c
-            - file: BSW/MCAL/as5600.c
-            - file: BSW/MCAL/motor.h
-            - file: BSW/MCAL/button.h
-            - file: BSW/MCAL/button.c
-            - file: BSW/MCAL/exti.h
-            - file: BSW/MCAL/dio.c
-            - file: BSW/MCAL/dio.h
-        - group: ECUAB
-          files:
-            - file: BSW/ECUAB/current_if.c
-            - file: BSW/ECUAB/current_if.h
-            - file: BSW/ECUAB/hall_if.c
-            - file: BSW/ECUAB/hall_if.h
-            - file: BSW/ECUAB/motor_if.c
-            - file: BSW/ECUAB/motor_if.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/dio.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/motor.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/motor.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/button.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/button.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/dio.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/encoder.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/MCAL/encoder.h
         - group: SERVICES
           files:
-            - file: BSW/SERVICES/diag.c
-            - file: BSW/SERVICES/diag.h
-            - file: BSW/SERVICES/os_if.c
-            - file: BSW/SERVICES/os_if.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/SERVICES/diag.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/SERVICES/diag.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/SERVICES/os_if.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/SERVICES/os_if.h
+        - group: ECUAB
+          files:
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/current_if.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/current_if.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/hall_if.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/hall_if.h
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/motor_if.c
+            - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/BSW/ECUAB/motor_if.h
+    - group: External_lib
+      groups:
+        - group: SEGGER_RTT
+          groups:
+            - group: Config
+              files:
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/Config/SEGGER_RTT_Conf.h
+            - group: RTT
+              files:
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/RTT/SEGGER_RTT.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/RTT/SEGGER_RTT.h
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/RTT/SEGGER_RTT_printf.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/RTT/SEGGER_RTT_ASM_ARMv7M.S
+            - group: Syscalls
+              files:
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_GCC.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_IAR.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_KEIL.c
+                - file: STM32CubeMX/STM32F407VGTx/STM32CubeMX/External_Lib/SEGGER_RTT/Syscalls/SEGGER_RTT_Syscalls_SES.c

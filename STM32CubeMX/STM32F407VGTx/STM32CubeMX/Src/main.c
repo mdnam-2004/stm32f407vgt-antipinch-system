@@ -21,12 +21,16 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f407xx.h"
 #include "stm32f4xx_hal.h"
 #include "dio.h"
 #include "button.h"
 #include "motor.h"
 #include <stdint.h>
 #include "SEGGER_RTT.h"
+#include "encoder.h"
+#include "stm32f4xx_hal_gpio.h"
+#include "stm32f4xx_hal_tim.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,8 +49,6 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
@@ -60,7 +62,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -84,6 +85,17 @@ if (HAL_GetTick() - lastMotorTick >= 10)
 	else{ Motor_Control(MOTOR_STOP, 0);}
 }
 
+encoder_handle_t hencoder_window;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim-> Instance == TIM4)
+  {
+    encoder_process_periodic(&hencoder_window);
+  }
+  else if (htim ->Instance ==TIM3) {
+    Button_Scan();
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -117,13 +129,13 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_I2C1_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim3); 
+  HAL_TIM_Base_Start_IT(&htim4);
   SEGGER_RTT_Init();
-	Button_Init();
 	Motor_Init();
-  SEGGER_RTT_WriteString(0, "AS5600 System Started...\r\n");
+  SEGGER_RTT_WriteString(0, "System Started...\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -133,8 +145,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
 	Motor_Control_APPLY();
+  int pinA = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8); 
+  int pinB = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8);
+  SEGGER_RTT_printf(0, "A: %d | B: %d | Cnt: %d | Dir: %d | Err_cnt: %u |Code_fault: %d |is_Fault: %d\n", 
+                              (int) pinA,(int) pinB,
+                              (int)hencoder_window.pulse_count, 
+                              (int)hencoder_window.direction, 
+                              (unsigned int)hencoder_window.error_count,
+                              (int) hencoder_window.fault_code,
+                              (int)hencoder_window.is_fault);
+  //SEGGER_RTT_printf(0, "Fault: %c\n",(char)hencoder_window.fault_code );                          
  }
   /* USER CODE END 3 */
 }
@@ -183,40 +204,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -394,8 +381,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13|GPIO_PIN_15, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_15;
+  /*Configure GPIO pins : Motor_down_Pin Phase_B_Pin */
+  GPIO_InitStruct.Pin = Motor_down_Pin|Phase_B_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -407,11 +394,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  /*Configure GPIO pin : Phase_A_Pin */
+  GPIO_InitStruct.Pin = Phase_A_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(Phase_A_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Motor_up_Pin */
+  GPIO_InitStruct.Pin = Motor_up_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Motor_up_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

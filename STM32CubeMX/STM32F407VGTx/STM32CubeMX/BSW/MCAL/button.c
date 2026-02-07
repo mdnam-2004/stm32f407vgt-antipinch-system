@@ -1,19 +1,6 @@
 #include "button.h"
 #define DEBOUNCE_TIME 5
 
-extern TIM_HandleTypeDef htim3;
-
-void Button_Init()
-{
-HAL_TIM_Base_Start_IT(&htim3);
-}
-
-void TIM3_IRQHandler(void)
-{
-	HAL_TIM_IRQHandler(&htim3);
-	Button_Scan();
-}	
-	
 static BTN_Config_t Map_BTN[BTN_COUNT] ={
 		{GPIOB,GPIO_PIN_9,0,0,0},
 		{GPIOC, GPIO_PIN_15,0,0,0}
